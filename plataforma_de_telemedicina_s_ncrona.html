@@ -4,1207 +4,225 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Telemedicina Síncrona Multi-Dispositivos (CFM & LGPD)</title>
-
-  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <!-- PeerJS WebRTC Library for Multi-Device P2P -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-  <!-- QRCode.js for ICP-Brasil prescription validation -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <!-- Google Fonts Inter -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          fontFamily: { sans: ['Inter', 'sans-serif'] },
           colors: {
-            medical: {
-              50: '#f0f9ff',
-              100: '#e0f2fe',
-              500: '#0284c7',
-              600: '#0284c7',
-              700: '#0369a1',
-              800: '#075985',
-              900: '#0c4a6e',
-            },
-            tealMed: {
-              500: '#0d9488',
-              600: '#0d9488',
-              700: '#0f766e'
-            }
+            medical: { 500: '#0284c7', 600: '#0284c7', 700: '#0369a1' }
           }
         }
       }
     }
   </script>
-
-  <style>
-    .glass-card {
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(226, 232, 240, 0.8);
-    }
-    .pulse-online {
-      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-      animation: pulseGreen 2s infinite;
-    }
-    @keyframes pulseGreen {
-      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-      70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-    }
-    /* Custom scrollbar */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #f1f5f9; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-  </style>
 </head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col">
 
-<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col font-sans">
-
-  <!-- TOP HEADER / NAV BAR -->
+  <!-- HEADER -->
   <header class="bg-slate-900 text-white shadow-md sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <div class="bg-medical-500 text-white p-2 rounded-lg flex items-center justify-center">
-          <i class="fa-solid font-bold fa-user-doctor text-xl"></i>
-        </div>
+        <div class="bg-sky-500 text-white p-2 rounded-lg"><i class="fa-solid fa-user-doctor"></i></div>
         <div>
-          <h1 class="text-lg font-bold tracking-tight flex items-center gap-2">
-            TeleMed Sync Pro
-            <span class="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full border border-emerald-500/30 font-medium">CFM 2.314/2022</span>
-          </h1>
-          <p class="text-xs text-slate-400">Atendimento Médico Síncrono Multi-Dispositivo WebRTC</p>
+          <h1 class="text-sm sm:text-base font-bold">TeleMed Sync Pro P2P</h1>
+          <p class="text-[10px] text-slate-400">CFM 2.314/2022 &amp; LGPD</p>
         </div>
       </div>
-
-      <!-- Live Connection Info Header -->
-      <div id="header-status-bar" class="hidden md:flex items-center gap-4 text-xs">
-        <div class="bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-2">
-          <span class="text-slate-400">Sala / Room Code:</span>
-          <span id="display-room-code" class="font-mono text-amber-400 font-bold uppercase">---</span>
-        </div>
-        <div class="bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-2">
-          <span class="text-slate-400">Papel:</span>
-          <span id="display-role" class="font-semibold text-sky-400">Não Selecionado</span>
-        </div>
-        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-800 text-emerald-300">
-          <span id="peer-status-dot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
-          <span id="peer-status-text">Desconectado</span>
-        </div>
-      </div>
-
-      <!-- Action buttons header -->
       <div class="flex items-center gap-2">
-        <button onclick="toggleAuditModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-lg border border-slate-700 flex items-center gap-2 transition">
-          <i class="fa-solid fa-shield-halved text-emerald-400"></i>
-          <span class="hidden sm:inline">Trilha de Auditoria & LGPD</span>
-        </button>
-        <button id="btn-reset-session" onclick="resetSession()" class="hidden text-xs bg-red-900/40 hover:bg-red-800 text-red-200 px-3 py-2 rounded-lg border border-red-800 flex items-center gap-2 transition">
-          <i class="fa-solid fa-power-off"></i>
-          <span>Sair da Sala</span>
-        </button>
+        <button onclick="window.location.reload()" class="text-xs bg-red-900/40 hover:bg-red-800 text-red-200 px-3 py-1.5 rounded-lg border border-red-800 hidden" id="btn-reset">Sair</button>
       </div>
     </div>
   </header>
 
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 flex flex-col gap-6">
 
-  <!-- MAIN CONTAINER -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-3 md:p-6 flex flex-col gap-6">
-
-    <!-- ========================================================================= -->
-    <!-- 1. LANDING / ROLE SELECTION & ROOM CREATION SECTION (TWO COMPUTERS SETUP) -->
-    <!-- ========================================================================= -->
-    <section id="role-selection-screen" class="max-w-4xl mx-auto w-full py-6">
+    <!-- ROLE SELECTION SCREEN -->
+    <section id="role-selection-screen" class="max-w-xl mx-auto w-full py-8 text-center">
+      <h2 class="text-xl font-bold text-slate-800 mb-2">Simulador Síncrono Multi-Dispositivos</h2>
+      <p class="text-xs text-slate-500 mb-6">Abra este arquivo em dois computadores ou abas diferentes, digite o mesmo código de sala e escolha perfis opostos (Paciente e Médico).</p>
       
-      <!-- Instructional Banner for Multi-Computer Testing -->
-      <div class="bg-gradient-to-r from-sky-900 to-indigo-900 text-white rounded-2xl p-6 shadow-xl mb-8 border border-sky-700/50">
-        <div class="flex items-start gap-4">
-          <div class="p-3 bg-sky-500/20 rounded-xl text-sky-300 hidden sm:block">
-            <i class="fa-solid fa-laptop-code text-3xl"></i>
-          </div>
-          <div>
-            <h2 class="text-xl font-bold text-white mb-2 flex items-center gap-2">
-              <i class="fa-solid fa-network-wired text-sky-400 sm:hidden"></i>
-              Como testar em dois computadores diferentes?
-            </h2>
-            <p class="text-sky-100 text-sm leading-relaxed mb-3">
-              Esta plataforma utiliza a tecnologia WebRTC Peer-to-Peer nativa para conectar áudio, vídeo e dados criptografados diretamente entre dois dispositivos sem necessidade de servidor intermediário de mídia.
-            </p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-900/60 p-3 rounded-lg border border-sky-500/30">
-              <div class="flex items-center gap-2">
-                <span class="bg-sky-500 text-white w-5 h-5 rounded-full font-bold flex items-center justify-center text-xs">1</span>
-                <span>No <strong>Computador A</strong> (Médico): Crie um Código de Sala (ex: <code class="text-amber-300 bg-slate-800 px-1 rounded">CONSULTA-100</code>).</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="bg-emerald-500 text-white w-5 h-5 rounded-full font-bold flex items-center justify-center text-xs">2</span>
-                <span>No <strong>Computador B</strong> (Paciente): Digite o <strong>mesmo código</strong> e clique em Conectar.</span>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div class="mb-4">
+        <label class="block text-xs font-bold text-slate-600 mb-1">Código de Conexão (Room Code):</label>
+        <input type="text" id="room-code-input" value="CONSULTA-2026" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 font-mono font-bold text-center uppercase text-base" />
       </div>
 
-      <!-- Room Code Input Box -->
-      <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-8 text-center max-w-lg mx-auto">
-        <label for="room-code-input" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-          Código de Conexão da Consulta (Room ID)
-        </label>
-        <div class="flex gap-2">
-          <input type="text" id="room-code-input" value="CONSULTA-2026" placeholder="Ex: CONSULTA-882" class="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 font-mono font-bold text-lg text-slate-800 tracking-wider text-center uppercase focus:ring-2 focus:ring-sky-500 focus:outline-none" />
-          <button onclick="generateRandomRoomCode()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 rounded-xl border border-slate-300 text-xs font-semibold flex items-center gap-1">
-            <i class="fa-solid fa-dice"></i> Gerar
-          </button>
-        </div>
-        <p class="text-xs text-slate-400 mt-2">Ambos os dispositivos devem ter exatamente o mesmo código para o emparelhamento.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <button onclick="startSession('PATIENT')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-4 rounded-xl shadow text-sm flex items-center justify-center gap-2">
+          <i class="fa-solid fa-user-injured"></i> Entrar como Paciente
+        </button>
+        <button onclick="startSession('DOCTOR')" class="bg-sky-600 hover:bg-sky-700 text-white font-bold p-4 rounded-xl shadow text-sm flex items-center justify-center gap-2">
+          <i class="fa-solid fa-user-md"></i> Entrar como Médico
+        </button>
       </div>
-
-      <!-- Role Selection Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        <!-- CARD: PACIENTE -->
-        <div class="bg-white rounded-2xl p-6 border-2 border-slate-200 hover:border-emerald-500 transition-all shadow-md hover:shadow-xl flex flex-col justify-between group">
-          <div>
-            <div class="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
-              <i class="fa-solid fa-user-injured"></i>
-            </div>
-            <span class="text-xs font-bold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">Dispositivo A / B</span>
-            <h3 class="text-2xl font-bold text-slate-800 mt-2">Acessar como PACIENTE</h3>
-            <p class="text-sm text-slate-500 mt-2 leading-relaxed">
-              <strong>Paciente:</strong> Maria Silva (CPF 123.***.***-00)<br/>
-              Entrar na sala para assinar o TCLE, enviar laudos/exames e receber prescrições assinadas pelo médico em tempo real.
-            </p>
-          </div>
-          <button onclick="startSession('PATIENT')" class="mt-6 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition text-base">
-            <span>Entrar como Paciente</span>
-            <i class="fa-solid fa-arrow-right"></i>
-          </button>
-        </div>
-
-        <!-- CARD: MÉDICO -->
-        <div class="bg-white rounded-2xl p-6 border-2 border-slate-200 hover:border-sky-500 transition-all shadow-md hover:shadow-xl flex flex-col justify-between group">
-          <div>
-            <div class="w-14 h-14 rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
-              <i class="fa-solid fa-user-md"></i>
-            </div>
-            <span class="text-xs font-bold text-sky-600 uppercase tracking-widest bg-sky-50 px-2.5 py-1 rounded-md border border-sky-200">Dispositivo A / B</span>
-            <h3 class="text-2xl font-bold text-slate-800 mt-2">Acessar como MÉDICO</h3>
-            <p class="text-sm text-slate-500 mt-2 leading-relaxed">
-              <strong>Médico:</strong> Dr. Carlos Eduardo (CRM 123456-SP)<br/>
-              Iniciar teleconsulta, consultar prontuário PEP, emitir receitas com assinatura digital ICP-Brasil e visualizar exames enviados.
-            </p>
-          </div>
-          <button onclick="startSession('DOCTOR')" class="mt-6 w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 transition text-base">
-            <span>Entrar como Médico</span>
-            <i class="fa-solid fa-arrow-right"></i>
-          </button>
-        </div>
-
-      </div>
-
     </section>
 
-    <!-- ========================================================================= -->
-    <!-- 2. MAIN ACTIVE CONSULTATION ROOM (Appears after selecting role)           -->
-    <!-- ========================================================================= -->
-    <div id="consultation-room" class="hidden flex-1 flex flex-col gap-6">
-
-      <!-- TOP BANNER: Real-time Status Sync & Room Bar -->
-      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center text-lg font-bold">
-            <i class="fa-solid fa-hospital-user"></i>
-          </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <h2 class="font-bold text-slate-800 text-base">Atendimento Síncrono: Maria Silva</h2>
-              <span id="consultation-status-badge" class="bg-amber-100 text-amber-800 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-amber-200">
-                Aguardando Conexão
-              </span>
+    <!-- ACTIVE CONSULTATION ROOM -->
+    <div id="consultation-room" class="hidden flex-1 flex flex-col gap-4">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
+        
+        <!-- VIDEO & CHAT (Left Column) -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+          <div class="bg-slate-900 rounded-2xl overflow-hidden shadow-xl relative aspect-video flex items-center justify-center">
+            <video id="remote-video" autoplay playsinline class="w-full h-full object-cover hidden"></video>
+            <div id="remote-fallback" class="text-slate-400 text-xs text-center p-4">
+              <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
+              <p>Aguardando conexão P2P do outro dispositivo...</p>
             </div>
-            <p class="text-xs text-slate-500">Convênio: Unimed Especial | Prontuário ID: #PEP-2026-994</p>
-          </div>
-        </div>
-
-        <!-- Sync indicators -->
-        <div class="flex items-center gap-4 text-xs">
-          <!-- TCLE Status badge -->
-          <div class="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-            <span class="text-slate-500 font-medium">TCLE Paciente:</span>
-            <span id="badge-tcle-status" class="font-bold text-red-600 flex items-center gap-1">
-              <i class="fa-solid fa-circle-xmark"></i> Pendente
-            </span>
-          </div>
-
-          <!-- PeerJS Direct Link share badge -->
-          <button onclick="copyRoomLink()" class="bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition">
-            <i class="fa-solid fa-link"></i> Copiar Link p/ Computador 2
-          </button>
-        </div>
-      </div>
-
-      <!-- MAIN SPLIT WORKSPACE: Left = Video/Chat, Right = Role Dashboard (Doctor or Patient) -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
-
-        <!-- LEFT COLUMN: VIDEO CALL & CHAT (5 Cols) -->
-        <div class="lg:col-span-5 flex flex-col gap-6">
-
-          <!-- WEBRTC VIDEO CONTAINER -->
-          <div class="bg-slate-900 rounded-2xl overflow-hidden shadow-xl border border-slate-800 relative flex flex-col">
-            
-            <!-- Video Grid -->
-            <div class="relative w-full aspect-video bg-slate-950 flex items-center justify-center overflow-hidden">
-              
-              <!-- REMOTE VIDEO (Main screen) -->
-              <video id="remote-video" autoplay playsinline class="w-full h-full object-cover hidden"></video>
-              
-              <!-- REMOTE FALLBACK AVATAR (When video is off or connecting) -->
-              <div id="remote-fallback" class="flex flex-col items-center justify-center p-6 text-center text-slate-400">
-                <div class="w-20 h-20 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center text-3xl mb-3 text-slate-300 shadow-inner">
-                  <i id="remote-avatar-icon" class="fa-solid fa-user"></i>
-                </div>
-                <p id="remote-avatar-name" class="font-bold text-slate-200 text-sm">Aguardando Conexão do Outro Dispositivo...</p>
-                <p id="remote-avatar-status" class="text-xs text-sky-400 mt-1 flex items-center gap-1">
-                  <i class="fa-solid fa-spinner fa-spin"></i> Conectando via PeerJS WebRTC...
-                </p>
-              </div>
-
-              <!-- LOCAL VIDEO PIP (Overlay floating box) -->
-              <div class="absolute bottom-3 right-3 w-32 aspect-video bg-slate-800 rounded-xl overflow-hidden border-2 border-slate-700 shadow-2xl">
-                <video id="local-video" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
-                <div id="local-fallback" class="w-full h-full flex flex-col items-center justify-center text-slate-400 bg-slate-800 text-xs">
-                  <i class="fa-solid fa-video-slash"></i>
-                  <span class="text-[10px] mt-0.5">Você</span>
-                </div>
-              </div>
-
-              <!-- Live Indicator tag -->
-              <div class="absolute top-3 left-3 bg-red-600/90 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1.5 shadow">
-                <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-                <span>AO VIVO</span>
-              </div>
-            </div>
-
-            <!-- VIDEO CONTROLS BAR -->
-            <div class="bg-slate-900 px-4 py-3 border-t border-slate-800 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <button id="btn-toggle-cam" onclick="toggleCamera()" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white transition flex items-center justify-center w-10 h-10" title="Ativar/Desativar Câmera">
-                  <i id="icon-cam" class="fa-solid fa-video"></i>
-                </button>
-                <button id="btn-toggle-mic" onclick="toggleMic()" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white transition flex items-center justify-center w-10 h-10" title="Ativar/Desativar Microfone">
-                  <i id="icon-mic" class="fa-solid fa-microphone"></i>
-                </button>
-                <button onclick="toggleScreenShare()" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white transition flex items-center justify-center w-10 h-10" title="Compartilhar Tela">
-                  <i class="fa-solid fa-desktop"></i>
-                </button>
-              </div>
-
-              <div class="flex items-center gap-2">
-                <button onclick="simulateDemoMedia()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1" title="Usar vídeo de teste caso não tenha webcam">
-                  <i class="fa-solid fa-clapperboard text-amber-400"></i> Demo Vídeo
-                </button>
-              </div>
+            <div class="absolute bottom-2 right-2 w-28 aspect-video bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
+              <video id="local-video" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
             </div>
           </div>
 
-          <!-- REAL-TIME P2P CHAT WINDOW -->
-          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col h-80">
-            <div class="p-3 border-b border-slate-200 bg-slate-50 rounded-t-2xl flex items-center justify-between">
-              <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                <i class="fa-solid fa-comments text-sky-600"></i> Chat Síncrono P2P
-              </h3>
-              <span class="text-[10px] bg-sky-100 text-sky-800 px-2 py-0.5 rounded font-mono">Criptografia WebRTC</span>
-            </div>
-
-            <!-- Messages Stream -->
-            <div id="chat-messages" class="flex-1 p-3 overflow-y-auto space-y-3 text-xs">
-              <div class="text-center my-2">
-                <span class="bg-slate-100 text-slate-500 text-[10px] px-2 py-1 rounded-full border border-slate-200">
-                  Canal seguro de mensagens diretas iniciado.
-                </span>
-              </div>
-            </div>
-
-            <!-- Chat Input Form -->
-            <form onsubmit="sendChatMessage(event)" class="p-2 border-t border-slate-200 flex gap-2">
-              <input type="text" id="chat-input" placeholder="Digite uma mensagem para o outro dispositivo..." class="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none" />
-              <button type="submit" class="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1">
-                <i class="fa-solid fa-paper-plane"></i>
-              </button>
+          <!-- Chat -->
+          <div class="bg-white rounded-2xl border p-3 flex flex-col h-60 shadow-sm">
+            <h3 class="text-xs font-bold text-slate-700 mb-2"><i class="fa-solid fa-comments text-sky-600"></i> Chat Síncrono P2P</h3>
+            <div id="chat-messages" class="flex-1 overflow-y-auto space-y-2 text-xs bg-slate-50 p-2 rounded-xl mb-2"></div>
+            <form onsubmit="sendChatMessage(event)" class="flex gap-2">
+              <input type="text" id="chat-input" placeholder="Mensagem..." class="flex-1 border rounded-lg px-3 py-1.5 text-xs" />
+              <button type="submit" class="bg-sky-600 text-white px-3 py-1.5 rounded-lg text-xs"><i class="fa-solid fa-paper-plane"></i></button>
             </form>
           </div>
-
         </div>
 
-        <!-- RIGHT COLUMN: ROLE DASHBOARD (7 Cols) -->
-        <div class="lg:col-span-7 flex flex-col gap-6">
-
-          <!-- ========================================== -->
-          <!-- A. PATIENT DASHBOARD VIEW (If role == PATIENT) -->
-          <!-- ========================================== -->
-          <div id="patient-view" class="hidden flex-1 flex-col gap-6">
-            
-            <!-- MANDATORY TCLE CONSENT CARD -->
-            <div id="tcle-card" class="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-5 shadow-sm">
-              <div class="flex items-start gap-3">
-                <div class="p-2.5 bg-amber-200/80 rounded-xl text-amber-800">
-                  <i class="fa-solid fa-file-contract text-2xl"></i>
-                </div>
-                <div class="flex-1">
-                  <h3 class="text-base font-bold text-amber-900 flex items-center justify-between">
-                    <span>Termo de Consentimento Livre e Esclarecido (TCLE)</span>
-                    <span class="text-xs bg-amber-200 text-amber-900 px-2 py-0.5 rounded font-bold">Obrigatório CFM</span>
-                  </h3>
-                  <p class="text-xs text-amber-800/90 mt-1 leading-relaxed">
-                    Em conformidade com a Resolução CFM 2.314/2022 e a LGPD, para prosseguir com a teleconsulta síncrona com o Dr. Carlos Eduardo, declare ter sido informado sobre os limites, riscos de sigilo digital e benefícios do atendimento remoto.
-                  </p>
-
-                  <div class="mt-3 bg-white p-3 rounded-xl border border-amber-200 text-xs text-slate-600 max-h-24 overflow-y-auto">
-                    <strong>Declaração do Paciente:</strong> Concordo em realizar esta consulta por meio de transmissão de vídeo/áudio em tempo real. Sei que posso interromper o atendimento para busca presencial a qualquer momento. Os meus dados de saúde serão tratados estritamente para fins de atendimento médico.
-                  </div>
-
-                  <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-                    <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800">
-                      <input type="checkbox" id="chk-tcle" onchange="toggleTCLEAcceptance(this.checked)" class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500" />
-                      <span>Li e aceito os termos do TCLE Telemedicina</span>
-                    </label>
-                    <button id="btn-accept-tcle" disabled onclick="confirmTCLESubmission()" class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow">
-                      <i class="fa-solid fa-check-double"></i> Assinar e Sincronizar TCLE com Médico
-                    </button>
-                  </div>
-                </div>
+        <!-- ROLE DASHBOARD (Right Column) -->
+        <div class="lg:col-span-7 flex flex-col gap-4">
+          
+          <!-- PATIENT VIEW -->
+          <div id="patient-view" class="hidden flex-1 flex flex-col gap-4">
+            <div class="bg-amber-50 border border-amber-300 rounded-2xl p-4 text-xs">
+              <strong>Termo de Consentimento (TCLE):</strong> Concorda com a teleconsulta síncrona?
+              <div class="mt-2 flex items-center justify-between">
+                <label class="flex items-center gap-2 cursor-pointer font-bold">
+                  <input type="checkbox" id="chk-tcle" onchange="confirmTCLE(this.checked)" /> Aceito os termos do TCLE
+                </label>
+                <span id="tcle-status" class="text-red-600 font-bold">Pendente</span>
               </div>
             </div>
 
-            <!-- EXAM / ATTACHMENT UPLOADER FOR PATIENT -->
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-              <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <i class="fa-solid fa-file-medical text-sky-600"></i> Enviar Exames & Laudos para o Médico
-              </h3>
-              <p class="text-xs text-slate-500 mb-3">
-                Envie arquivos em tempo real (PDF, Imagens, Exames). O médico verá instantaneamente na tela dele no Computador B.
-              </p>
-
-              <div class="border-2 border-dashed border-slate-300 hover:border-sky-500 rounded-xl p-4 text-center bg-slate-50 transition cursor-pointer relative" onclick="document.getElementById('file-upload-input').click()">
-                <input type="file" id="file-upload-input" onchange="handlePatientFileUpload(event)" class="hidden" accept="image/*,.pdf" />
-                <i class="fa-solid fa-cloud-arrow-up text-2xl text-sky-600 mb-1"></i>
-                <p class="text-xs font-semibold text-slate-700">Clique para selecionar um arquivo do seu computador</p>
-                <p class="text-[10px] text-slate-400 mt-0.5">Formatos aceitos: PDF, PNG, JPG (Simulação P2P)</p>
-              </div>
-
-              <!-- List of uploaded documents -->
-              <div id="patient-sent-files-list" class="mt-3 space-y-2">
-                <!-- Dynamically populated -->
-              </div>
+            <div class="bg-white rounded-2xl border p-4 shadow-sm flex-1">
+              <h3 class="font-bold text-xs text-slate-700 mb-2"><i class="fa-solid fa-receipt text-emerald-600"></i> Receitas Médicas Recebidas</h3>
+              <div id="patient-rx-container" class="text-xs text-slate-400">Nenhuma receita emitida ainda.</div>
             </div>
-
-            <!-- RECEIVED PRESCRIPTIONS & DOCUMENTS AREA -->
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-              <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <i class="fa-solid fa-prescription-bottle-medical text-emerald-600"></i> Receitas & Documentos Recebidos do Médico
-              </h3>
-              <p class="text-xs text-slate-500 mb-3">
-                Assim que o médico assinar digitalmente a receita no Computador B, ela aparecerá aqui automaticamente com código QR e Hash de validação ICP-Brasil.
-              </p>
-
-              <div id="patient-received-prescriptions" class="space-y-3">
-                <div id="empty-rx-state" class="text-center py-6 border border-slate-100 rounded-xl bg-slate-50 text-slate-400 text-xs">
-                  <i class="fa-solid fa-receipt text-3xl mb-2 text-slate-300 block"></i>
-                  Nenhuma receita recebida até o momento nesta consulta.
-                </div>
-              </div>
-            </div>
-
           </div>
 
-
-          <!-- ========================================== -->
-          <!-- B. DOCTOR DASHBOARD VIEW (If role == DOCTOR)-->
-          <!-- ========================================== -->
-          <div id="doctor-view" class="hidden flex-1 flex-col gap-6">
-
-            <!-- PATIENT SUMMARY BANNER -->
-            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex items-center justify-between">
-              <div>
-                <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Prontuário Eletrônico do Paciente (PEP)</span>
-                <h3 class="text-base font-bold text-slate-800">Maria Silva, 38 anos (F)</h3>
-                <p class="text-xs text-slate-500">Histórico: Hipertensão leve controlada | Alergia: Penicilina</p>
-              </div>
-              <div class="text-right">
-                <span class="text-xs text-slate-400 block">Status TCLE:</span>
-                <span id="doc-view-tcle-badge" class="bg-red-100 text-red-800 text-xs px-2.5 py-1 rounded-full font-bold">
-                  Não Assinado
-                </span>
-              </div>
+          <!-- DOCTOR VIEW -->
+          <div id="doctor-view" class="hidden flex-1 flex flex-col gap-4">
+            <div class="bg-white rounded-2xl border p-4 shadow-sm">
+              <span class="text-[10px] font-bold text-slate-400">Prontuário Eletrônico do Paciente (PEP)</span>
+              <h3 class="font-bold text-sm text-slate-800">Maria Silva - Status TCLE: <span id="doc-tcle-badge" class="text-red-600">Não Assinado</span></h3>
             </div>
 
-            <!-- PEP TABS NAVIGATION -->
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col flex-1">
-              <div class="flex border-b border-slate-200 bg-slate-50 text-xs font-bold">
-                <button onclick="switchPepTab('anamnesis')" id="tab-btn-anamnesis" class="flex-1 py-3 px-4 text-sky-700 border-b-2 border-sky-600 bg-white transition flex items-center justify-center gap-1.5">
-                  <i class="fa-solid fa-notes-medical"></i> Anamnese & Exame
-                </button>
-                <button onclick="switchPepTab('rx')" id="tab-btn-rx" class="flex-1 py-3 px-4 text-slate-600 hover:text-sky-600 transition flex items-center justify-center gap-1.5">
-                  <i class="fa-solid fa-file-signature"></i> Receita Digital (ICP-Brasil)
-                </button>
-                <button onclick="switchPepTab('files')" id="tab-btn-files" class="flex-1 py-3 px-4 text-slate-600 hover:text-sky-600 transition flex items-center justify-center gap-1.5">
-                  <i class="fa-solid fa-paperclip"></i> Exames do Paciente (<span id="doctor-file-count">0</span>)
-                </button>
-              </div>
-
-              <div class="p-5 flex-1 overflow-y-auto">
-
-                <!-- TAB 1: ANAMNESIS & PEP NOTES -->
-                <div id="pep-tab-anamnesis" class="space-y-4 text-xs">
-                  <div>
-                    <label class="block font-bold text-slate-700 mb-1">Queixa Principal (QP) & História da Moléstia Atual (HMA):</label>
-                    <textarea rows="3" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none" placeholder="Paciente relata cefaleia holocraniana há 2 dias...">Paciente relata dor de cabeça frontal de leve a moderada há 2 dias, associada a cansaço visual após trabalho em tela.</textarea>
-                  </div>
-
-                  <div class="grid grid-cols-2 gap-3">
-                    <div>
-                      <label class="block font-bold text-slate-700 mb-1">Hipótese Diagnóstica (CID-10):</label>
-                      <select class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none">
-                        <option value="G44.2">G44.2 - Cefaleia Tensional Episaódica</option>
-                        <option value="J00">J00 - Nasofaringite Aguda (Resfriado)</option>
-                        <option value="I10">I10 - Hipertensão Essencial (Primária)</option>
-                        <option value="Z00.0">Z00.0 - Exame Médico Geral</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label class="block font-bold text-slate-700 mb-1">Conduta Médica / Orientação:</label>
-                      <input type="text" value="Repouso, hidratação e sintomáticos. Retorno se houver sinais de alarme." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none" />
-                    </div>
-                  </div>
-
-                  <div class="p-3 bg-sky-50 rounded-xl border border-sky-200 flex items-center justify-between">
-                    <span class="text-sky-900 font-medium">Prontuário com sincronização automática de tempo de atendimento.</span>
-                    <button class="bg-sky-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-sky-700 transition">
-                      Salvar Prontuário
-                    </button>
-                  </div>
-                </div>
-
-                <!-- TAB 2: DIGITAL PRESCRIPTION ISSUER (ICP-BRASIL) -->
-                <div id="pep-tab-rx" class="hidden space-y-4 text-xs">
-                  <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-900 flex items-center gap-2">
-                    <i class="fa-solid fa-certificate text-emerald-600 text-lg"></i>
-                    <div>
-                      <strong class="block text-xs">Assinatura Digital Padrão ICP-Brasil (Portaria SVS/MS nº 344/1998)</strong>
-                      <span class="text-[11px] text-emerald-700">Ao clicar em 'Emitir e Assinar', o documento criptografado será enviado instantaneamente para a tela do paciente no Computador B.</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label class="block font-bold text-slate-700 mb-1">Prescrição Medicamentosa / Tratamento:</label>
-                    <textarea id="rx-medicines-input" rows="4" class="w-full font-mono bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none" placeholder="1. Dipirona Sódica 500mg -------- 1 caixa
-Tomar 1 comprimido VO de 6/6h se dor.
-
-2. Paracetamol 750mg ----------- 1 caixa
-Tomar 1 comprimido VO em caso de febre.">1. Dipirona Sódica 500mg ------------- 1 caixa
-   Tomar 1 comprimido via oral de 6 em 6 horas se dor.
-
-2. Solução Fisiológica 0,9% ---------- 1 frasco
-   Lavar narinas 3x ao dia.</textarea>
-                  </div>
-
-                  <div class="flex items-center justify-between pt-2">
-                    <div class="flex items-center gap-2 text-[11px] text-slate-500">
-                      <i class="fa-solid fa-key text-slate-400"></i>
-                      <span>Chave Privada CRM-SP 123456 Ativa</span>
-                    </div>
-                    <button onclick="issueDigitalPrescription()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center gap-2 transition">
-                      <i class="fa-solid fa-pen-nib"></i> Assinar Digitalmente & Enviar para Paciente
-                    </button>
-                  </div>
-                </div>
-
-                <!-- TAB 3: PATIENT ATTACHMENTS VIEW -->
-                <div id="pep-tab-files" class="hidden space-y-3 text-xs">
-                  <p class="text-slate-500">Arquivos e exames anexados e transmitidos pelo paciente durante a consulta:</p>
-                  
-                  <div id="doctor-received-files-list" class="space-y-2">
-                    <div id="doc-no-files-msg" class="text-center py-8 border border-slate-100 bg-slate-50 rounded-xl text-slate-400">
-                      <i class="fa-solid fa-folder-open text-3xl mb-2 text-slate-300 block"></i>
-                      Nenhum exame enviado pelo paciente até o momento.
-                    </div>
-                  </div>
-                </div>
-
-              </div>
+            <div class="bg-white rounded-2xl border p-4 shadow-sm flex-1 flex flex-col gap-3">
+              <h3 class="font-bold text-xs text-slate-700"><i class="fa-solid fa-prescription text-emerald-600"></i> Emissor de Receita Digital ICP-Brasil</h3>
+              <textarea id="rx-text" rows="3" class="w-full border rounded-xl p-2 text-xs font-mono" placeholder="Digite os medicamentos...">1. Dipirona Sódica 500mg - 1 caixa</textarea>
+              <button onclick="issuePrescription()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-4 rounded-xl shadow">
+                Assinar Digitalmente &amp; Enviar p/ Paciente
+              </button>
             </div>
-
           </div>
 
         </div>
 
       </div>
-
     </div>
 
   </main>
 
-
-  <!-- ========================================================================= -->
-  <!-- AUDIT & CFM COMPLIANCE MODAL                                             -->
-  <!-- ========================================================================= -->
-  <div id="audit-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]">
-      
-      <!-- Modal Header -->
-      <div class="bg-slate-900 text-white p-4 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <i class="fa-solid fa-shield-halved text-emerald-400 text-lg"></i>
-          <div>
-            <h3 class="font-bold text-sm">Trilha de Auditoria & Conformidade LGPD/CFM</h3>
-            <p class="text-[10px] text-slate-400">Resolução CFM 2.314/2022 & Lei 13.709/2018</p>
-          </div>
-        </div>
-        <button onclick="toggleAuditModal()" class="text-slate-400 hover:text-white p-1">
-          <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-      </div>
-
-      <!-- Modal Body -->
-      <div class="p-5 overflow-y-auto flex-1 space-y-4 text-xs">
-        
-        <!-- Checklist CFM -->
-        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
-          <h4 class="font-bold text-slate-800 mb-2 flex items-center gap-1.5">
-            <i class="fa-solid fa-clipboard-check text-sky-600"></i> Requisitos Normativos CFM 2.314/2022:
-          </h4>
-          <ul class="space-y-1.5 text-slate-600">
-            <li class="flex items-center gap-2">
-              <i class="fa-solid fa-circle-check text-emerald-500"></i>
-              <span>Autenticação de perfil médico com CRM e especialidade cadastrados.</span>
-            </li>
-            <li class="flex items-center gap-2">
-              <i class="fa-solid fa-circle-check text-emerald-500"></i>
-              <span>Consentimento do paciente (TCLE) gravado com timestamp e Hash ID.</span>
-            </li>
-            <li class="flex items-center gap-2">
-              <i class="fa-solid fa-circle-check text-emerald-500"></i>
-              <span>Transmissão síncrona com criptografia de ponta a ponta (WebRTC DTLS/SRTP).</span>
-            </li>
-          </ul>
-        </div>
-
-        <!-- Live Real-Time Logs -->
-        <div>
-          <h4 class="font-bold text-slate-800 mb-2">Logs de Eventos Síncronos em Tempo Real:</h4>
-          <div id="audit-log-container" class="bg-slate-900 text-emerald-400 p-3 rounded-xl font-mono text-[11px] h-48 overflow-y-auto space-y-1 border border-slate-800">
-            <!-- Dynamically appended log lines -->
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Modal Footer -->
-      <div class="bg-slate-100 p-3 border-t border-slate-200 text-right">
-        <button onclick="toggleAuditModal()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold px-4 py-2 rounded-xl text-xs">
-          Fechar
-        </button>
-      </div>
-    </div>
-  </div>
-
-
-  <!-- ========================================================================= -->
-  <!-- JAVASCRIPT: WEBRTC PEERJS MULTI-DEVICE LOGIC                             -->
-  <!-- ========================================================================= -->
   <script>
-    // GLOBAL STATE VARIABLES
-    let userRole = null;             // 'PATIENT' or 'DOCTOR'
-    let roomCode = '';               // Joined Room Code
-    let peer = null;                 // PeerJS Instance
-    let peerConn = null;             // DataConnection
-    let mediaCall = null;            // MediaConnection
-    let localStream = null;          // Local MediaStream
-    let isCamOn = true;
-    let isMicOn = true;
-    let isTcleAccepted = false;
-    let sentFilesList = [];
-    let receivedFilesList = [];
+    let userRole = null, roomCode = '', peer = null, peerConn = null, mediaCall = null, localStream = null;
 
-    // Helper logging to audit trail
-    function auditLog(message) {
-      const logContainer = document.getElementById('audit-log-container');
-      const time = new Date().toLocaleTimeString('pt-BR');
-      const logItem = document.createElement('div');
-      logItem.innerHTML = `<span class="text-slate-500">[${time}]</span> ${message}`;
-      logContainer.appendChild(logItem);
-      logContainer.scrollTop = logContainer.scrollHeight;
-    }
-
-    // Initialize random room code
-    function generateRandomRoomCode() {
-      const code = 'MED-' + Math.floor(1000 + Math.random() * 9000);
-      document.getElementById('room-code-input').value = code;
-    }
-
-    // Start Session with role selection
     function startSession(role) {
-      const inputCode = document.getElementById('room-code-input').value.trim().toUpperCase();
-      if (!inputCode) {
-        alert('Por favor, digite ou gere um Código de Conexão (Room Code).');
-        return;
-      }
-
       userRole = role;
-      roomCode = inputCode;
-
-      // Update Header Display
-      document.getElementById('display-room-code').innerText = roomCode;
-      document.getElementById('display-role').innerText = role === 'DOCTOR' ? 'Dr. Carlos Eduardo (Médico)' : 'Maria Silva (Paciente)';
-      document.getElementById('header-status-bar').classList.remove('hidden');
-      document.getElementById('btn-reset-session').classList.remove('hidden');
-
-      // Hide Landing, Show Workspace
+      roomCode = document.getElementById('room-code-input').value.toUpperCase();
       document.getElementById('role-selection-screen').classList.add('hidden');
       document.getElementById('consultation-room').classList.remove('hidden');
+      document.getElementById('btn-reset').classList.remove('hidden');
 
-      if (role === 'PATIENT') {
-        document.getElementById('patient-view').classList.remove('hidden');
-        document.getElementById('remote-avatar-icon').className = 'fa-solid fa-user-md';
-        document.getElementById('remote-avatar-name').innerText = 'Dr. Carlos Eduardo (CRM 123456-SP)';
-      } else {
-        document.getElementById('doctor-view').classList.remove('hidden');
-        document.getElementById('remote-avatar-icon').className = 'fa-solid fa-user-injured';
-        document.getElementById('remote-avatar-name').innerText = 'Maria Silva (Paciente)';
-      }
+      if(role === 'PATIENT') { document.getElementById('patient-view').classList.remove('hidden'); }
+      else { document.getElementById('doctor-view').classList.remove('hidden'); }
 
-      auditLog(`Perfil selecionado: <strong>${role}</strong> na Sala ID: <strong>${roomCode}</strong>`);
-
-      // Initialize WebRTC Media & PeerJS connection
-      initLocalMediaAndPeer();
+      initWebRTC();
     }
 
-    // Setup Local Camera/Mic
-    async function initLocalMediaAndPeer() {
+    async function initWebRTC() {
       try {
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        const localVideoEl = document.getElementById('local-video');
-        localVideoEl.srcObject = localStream;
-        localVideoEl.classList.remove('hidden');
-        document.getElementById('local-fallback').classList.add('hidden');
-        auditLog("Câmera e microfone locais ativados com sucesso.");
-      } catch (err) {
-        console.warn("Sem acesso à webcam nativa ou permissão negada. O usuário pode usar o recurso 'Demo Vídeo'.", err);
-        auditLog("Câmera/Mic não detectados ou permissão negada. Vídeo local em modo avatar.");
-      }
+        const localVid = document.getElementById('local-video');
+        localVid.srcObject = localStream;
+        localVid.classList.remove('hidden');
+      } catch(e) { console.warn("Webcam não detectada, operando sem vídeo local direto."); }
 
-      // Initialize PeerJS Multi-Device Signaling
-      setupPeerJS();
-    }
+      const myId = userRole === 'DOCTOR' ? `ROOM-${roomCode}-DOC` : `ROOM-${roomCode}-PAT`;
+      const targetId = userRole === 'DOCTOR' ? `ROOM-${roomCode}-PAT` : `ROOM-${roomCode}-DOC`;
 
-    // PEERJS NETWORK SETUP (Pairing Computer A & Computer B)
-    function setupPeerJS() {
-      // Create predictable peer IDs for Doctor and Patient based on Room Code
-      const myPeerId = userRole === 'DOCTOR' ? `ROOM-${roomCode}-DOC` : `ROOM-${roomCode}-PAT`;
-      const targetPeerId = userRole === 'DOCTOR' ? `ROOM-${roomCode}-PAT` : `ROOM-${roomCode}-DOC`;
-
-      // Instantiate PeerJS client using free public signaling servers
-      peer = new Peer(myPeerId);
-
-      peer.on('open', (id) => {
-        auditLog(`Servidor de Sinalização conectado. Meu ID Peer: <code class="text-sky-300">${id}</code>`);
-        updatePeerStatus(false, "Aguardando outro computador entrar...");
-
-        // Try connecting to target peer
-        connectToTargetPeer(targetPeerId);
-      });
-
-      // Handle incoming Data Connection from other device
-      peer.on('connection', (conn) => {
-        peerConn = conn;
-        setupDataConnectionHandlers();
-      });
-
-      // Handle incoming Video/Audio Call from other device
-      peer.on('call', (call) => {
-        mediaCall = call;
-        call.answer(localStream); // Answer with local stream
-        call.on('stream', (remoteStream) => {
-          attachRemoteStream(remoteStream);
-        });
-      });
-
-      peer.on('error', (err) => {
-        console.log('PeerJS Log:', err.type);
-        // If peer ID taken or peer not available yet, retry connecting periodically
-        if (err.type === 'peer-unavailable') {
-          setTimeout(() => connectToTargetPeer(targetPeerId), 3000);
+      peer = new Peer(myId);
+      peer.on('open', () => {
+        peerConn = peer.connect(targetId);
+        setupConn();
+        if(localStream) {
+          const call = peer.call(targetId, localStream);
+          if(call) { call.on('stream', attachRemote); mediaCall = call; }
         }
       });
+      peer.on('connection', (c) => { peerConn = c; setupConn(); });
+      peer.on('call', (c) => { c.answer(localStream); c.on('stream', attachRemote); mediaCall = c; });
     }
 
-    function connectToTargetPeer(targetPeerId) {
-      if (!peer || peer.destroyed) return;
-
-      // 1. Initiate Data Channel
-      if (!peerConn) {
-        const conn = peer.connect(targetPeerId);
-        conn.on('open', () => {
-          peerConn = conn;
-          setupDataConnectionHandlers();
-        });
-      }
-
-      // 2. Initiate Video Call if localStream exists
-      if (localStream && !mediaCall) {
-        const call = peer.call(targetPeerId, localStream);
-        if (call) {
-          mediaCall = call;
-          call.on('stream', (remoteStream) => {
-            attachRemoteStream(remoteStream);
-          });
-        }
-      }
-    }
-
-    // Handle Data Messages between Computer A & Computer B
-    function setupDataConnectionHandlers() {
-      updatePeerStatus(true, "Conectado ao Outro Dispositivo");
-      document.getElementById('consultation-status-badge').className = "bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-emerald-200";
-      document.getElementById('consultation-status-badge').innerText = "Consulta Síncrona Ativa";
-
-      auditLog(`<strong>P2P Estabelecido!</strong> Conectado com o dispositivo remoto via WebRTC DataChannel.`);
-
+    function setupConn() {
       peerConn.on('data', (data) => {
-        handleIncomingP2PData(data);
-      });
-
-      peerConn.on('close', () => {
-        updatePeerStatus(false, "Conexão perdida");
-        auditLog("Conexão P2P encerrada com o parceiro.");
+        if(data.type === 'CHAT') appendChat(data.sender, data.text, 'remote');
+        if(data.type === 'TCLE') {
+          document.getElementById('doc-tcle-badge').innerText = data.accepted ? "Assinado" : "Pendente";
+          document.getElementById('doc-tcle-badge').className = data.accepted ? "text-emerald-600 font-bold" : "text-red-600 font-bold";
+        }
+        if(data.type === 'RX') { renderRx(data.rx); }
       });
     }
 
-    // Handle payload from remote computer
-    function handleIncomingP2PData(data) {
-      console.log('Received P2P Data:', data);
-
-      switch (data.type) {
-        case 'CHAT_MSG':
-          appendChatMessage(data.sender, data.text, 'remote');
-          break;
-
-        case 'TCLE_UPDATE':
-          isTcleAccepted = data.accepted;
-          updateTcleUI(data.accepted);
-          auditLog(`<strong>TCLE Sincronizado:</strong> Paciente ${data.accepted ? 'aceitou' : 'desmarcou'} o termo.`);
-          break;
-
-        case 'FILE_SHARE':
-          handleReceivedFileFromRemote(data);
-          break;
-
-        case 'PRESCRIPTION_ISSUED':
-          handleReceivedPrescription(data);
-          break;
-      }
-    }
-
-    // Attach Video Stream to Remote Element
-    function attachRemoteStream(remoteStream) {
-      const remoteVideoEl = document.getElementById('remote-video');
-      remoteVideoEl.srcObject = remoteStream;
-      remoteVideoEl.classList.remove('hidden');
+    function attachRemote(stream) {
+      const remoteVid = document.getElementById('remote-video');
+      remoteVid.srcObject = stream;
+      remoteVid.classList.remove('hidden');
       document.getElementById('remote-fallback').classList.add('hidden');
-      auditLog("<strong>Vídeo Síncrono Conectado!</strong> Transmissão remota em tempo real ativada.");
     }
 
-    // Peer Status UI Update
-    function updatePeerStatus(isConnected, text) {
-      const dot = document.getElementById('peer-status-dot');
-      const label = document.getElementById('peer-status-text');
-      label.innerText = text;
-      if (isConnected) {
-        dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 pulse-online";
-      } else {
-        dot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping";
-      }
+    function confirmTCLE(checked) {
+      document.getElementById('tcle-status').innerText = checked ? "Aceito & Assinado" : "Pendente";
+      document.getElementById('tcle-status').className = checked ? "text-emerald-600 font-bold" : "text-red-600 font-bold";
+      if(peerConn && peerConn.open) peerConn.send({ type: 'TCLE', accepted: checked });
     }
 
-    // =========================================================================
-    // TCLE CONSENT SYNCHRONIZATION
-    // =========================================================================
-    function toggleTCLEAcceptance(checked) {
-      document.getElementById('btn-accept-tcle').disabled = !checked;
-    }
-
-    function confirmTCLESubmission() {
-      isTcleAccepted = true;
-      updateTcleUI(true);
-
-      // Send P2P Sync to Doctor's Computer
-      if (peerConn && peerConn.open) {
-        peerConn.send({
-          type: 'TCLE_UPDATE',
-          accepted: true,
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      auditLog("<strong>TCLE Assinado:</strong> Registro de consentimento salvo com hash LGPD.");
-    }
-
-    function updateTcleUI(accepted) {
-      const patientBadge = document.getElementById('badge-tcle-status');
-      const doctorBadge = document.getElementById('doc-view-tcle-badge');
-
-      if (accepted) {
-        if (patientBadge) {
-          patientBadge.className = "font-bold text-emerald-600 flex items-center gap-1";
-          patientBadge.innerHTML = `<i class="fa-solid fa-circle-check"></i> Aceito & Assinado`;
-        }
-        if (doctorBadge) {
-          doctorBadge.className = "bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full font-bold";
-          doctorBadge.innerText = "Assinado e Válido";
-        }
-        const tcleCard = document.getElementById('tcle-card');
-        if (tcleCard) {
-          tcleCard.className = "bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-5 shadow-sm";
-        }
-      }
-    }
-
-
-    // =========================================================================
-    // CHAT & FILE ATTACHMENT SHARING
-    // =========================================================================
     function sendChatMessage(e) {
       e.preventDefault();
-      const input = document.getElementById('chat-input');
-      const text = input.value.trim();
-      if (!text) return;
-
-      const senderName = userRole === 'DOCTOR' ? 'Dr. Carlos' : 'Maria Silva';
-      appendChatMessage(senderName, text, 'local');
-
-      // Send to Remote Computer over WebRTC DataChannel
-      if (peerConn && peerConn.open) {
-        peerConn.send({
-          type: 'CHAT_MSG',
-          sender: senderName,
-          text: text
-        });
-      }
-
-      input.value = '';
+      const txt = document.getElementById('chat-input').value;
+      if(!txt) return;
+      const name = userRole === 'DOCTOR' ? 'Dr. Carlos' : 'Maria';
+      appendChat(name, txt, 'local');
+      if(peerConn && peerConn.open) peerConn.send({ type: 'CHAT', sender: name, text: txt });
+      document.getElementById('chat-input').value = '';
     }
 
-    function appendChatMessage(sender, text, origin) {
-      const container = document.getElementById('chat-messages');
-      const msgDiv = document.createElement('div');
-      
-      const isLocal = origin === 'local';
-      msgDiv.className = `flex flex-col ${isLocal ? 'items-end' : 'items-start'}`;
-      
-      msgDiv.innerHTML = `
-        <div class="max-w-[80%] rounded-2xl px-3 py-2 text-xs ${isLocal ? 'bg-sky-600 text-white rounded-br-none' : 'bg-slate-100 text-slate-800 rounded-bl-none border border-slate-200'} shadow-sm">
-          <span class="block text-[10px] font-bold opacity-75 mb-0.5">${sender}</span>
-          <p class="leading-relaxed">${text}</p>
-        </div>
-      `;
-      container.appendChild(msgDiv);
-      container.scrollTop = container.scrollHeight;
+    function appendChat(sender, text, origin) {
+      const box = document.getElementById('chat-messages');
+      box.innerHTML += `<div class="flex flex-col ${origin==='local'?'items-end':'items-start'}"><span class="text-[9px] text-slate-400">${sender}</span><p class="bg-${origin==='local'?'sky-600 text-white':'slate-200 text-slate-800'} px-2 py-1 rounded-lg">${text}</p></div>`;
+      box.scrollTop = box.scrollHeight;
     }
 
-    // Patient uploading exam file
-    function handlePatientFileUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const fileData = {
-          fileName: file.name,
-          fileType: file.type,
-          fileSize: (file.size / 1024).toFixed(1) + ' KB',
-          fileContent: e.target.result // Base64
-        };
-
-        // Add to local list
-        addPatientFileToList(fileData);
-
-        // Transmit to Doctor's Computer
-        if (peerConn && peerConn.open) {
-          peerConn.send({
-            type: 'FILE_SHARE',
-            file: fileData
-          });
-        }
-
-        auditLog(`<strong>Exame Enviado:</strong> ${file.name} enviado via DataChannel P2P.`);
-      };
-      reader.readAsDataURL(file);
+    function issuePrescription() {
+      const text = document.getElementById('rx-text').value;
+      const rx = { medicines: text, hash: 'ICP-BR-' + Math.random().toString(36).substring(2, 10).toUpperCase(), date: new Date().toLocaleTimeString('pt-BR') };
+      if(peerConn && peerConn.open) peerConn.send({ type: 'RX', rx: rx });
+      alert("Receita enviada com sucesso para o paciente!");
     }
 
-    function addPatientFileToList(fileData) {
-      const list = document.getElementById('patient-sent-files-list');
-      const item = document.createElement('div');
-      item.className = "flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs";
-      item.innerHTML = `
-        <div class="flex items-center gap-2">
-          <i class="fa-solid fa-file-pdf text-red-500 text-base"></i>
-          <div>
-            <strong class="block text-slate-800">${fileData.fileName}</strong>
-            <span class="text-[10px] text-slate-400">${fileData.fileSize}</span>
-          </div>
-        </div>
-        <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">Enviado</span>
-      `;
-      list.appendChild(item);
+    function renderRx(rx) {
+      const container = document.getElementById('patient-rx-container');
+      container.innerHTML = `<div class="p-3 border-2 border-emerald-500 rounded-xl bg-slate-50"><p class="font-bold text-slate-800">Dr. Carlos Eduardo (CRM 123456-SP)</p><pre class="font-mono text-xs my-2">${rx.medicines}</pre><code class="text-[10px] text-emerald-700 font-bold">Hash: ${rx.hash}</code></div>`;
     }
-
-    function handleReceivedFileFromRemote(data) {
-      const file = data.file;
-      receivedFilesList.push(file);
-
-      // Update doctor tab count
-      document.getElementById('doctor-file-count').innerText = receivedFilesList.length;
-      document.getElementById('doc-no-files-msg')?.classList.add('hidden');
-
-      const container = document.getElementById('doctor-received-files-list');
-      const card = document.createElement('div');
-      card.className = "flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 shadow-sm";
-      card.innerHTML = `
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-lg">
-            <i class="fa-solid fa-file-medical"></i>
-          </div>
-          <div>
-            <strong class="block text-slate-800 text-xs">${file.fileName}</strong>
-            <span class="text-[10px] text-slate-400">Tamanho: ${file.fileSize}</span>
-          </div>
-        </div>
-        <a href="${file.fileContent}" download="${file.fileName}" class="bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1">
-          <i class="fa-solid fa-download"></i> Visualizar
-        </a>
-      `;
-      container.appendChild(card);
-      auditLog(`<strong>Exame Recebido:</strong> O paciente enviou ${file.fileName}.`);
-    }
-
-
-    // =========================================================================
-    // DOCTOR DIGITAL PRESCRIPTION ISSUER (ICP-BRASIL)
-    // =========================================================================
-    function issueDigitalPrescription() {
-      const text = document.getElementById('rx-medicines-input').value.trim();
-      if (!text) {
-        alert('Por favor, digite os medicamentos da receita.');
-        return;
-      }
-
-      // Generate SHA-256 Mock Hash & Digital ID
-      const timestamp = new Date().toLocaleString('pt-BR');
-      const hash = 'ICP-BR-' + Math.random().toString(36).substring(2, 12).toUpperCase() + '-' + Date.now().toString(36).toUpperCase();
-
-      const rxData = {
-        doctorName: 'Dr. Carlos Eduardo',
-        crm: '123456-SP',
-        patientName: 'Maria Silva',
-        medicines: text,
-        issuedAt: timestamp,
-        hash: hash
-      };
-
-      // Send directly to Patient Computer over WebRTC
-      if (peerConn && peerConn.open) {
-        peerConn.send({
-          type: 'PRESCRIPTION_ISSUED',
-          rx: rxData
-        });
-      }
-
-      alert('Receita assinada digitalmente com padrão ICP-Brasil e emitida para o Computador do Paciente!');
-      auditLog(`<strong>Receita Emitida:</strong> Receita ICP-Brasil gerada. SHA-256: <code>${hash}</code>`);
-    }
-
-    function handleReceivedPrescription(data) {
-      const rx = data.rx;
-      document.getElementById('empty-rx-state')?.classList.add('hidden');
-
-      const container = document.getElementById('patient-received-prescriptions');
-      const cardId = 'qr-' + Math.floor(Math.random() * 100000);
-
-      const rxCard = document.createElement('div');
-      rxCard.className = "bg-white p-4 rounded-xl border-2 border-emerald-500 shadow-md flex flex-col gap-3";
-      
-      rxCard.innerHTML = `
-        <div class="flex items-center justify-between border-b border-slate-200 pb-2">
-          <div>
-            <span class="text-[10px] font-bold text-emerald-600 uppercase">Receita Médica Digital Assinada</span>
-            <h4 class="font-bold text-slate-800 text-sm">${rx.doctorName} (${rx.crm})</h4>
-          </div>
-          <span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-mono font-bold">ICP-Brasil Validado</span>
-        </div>
-
-        <div class="bg-slate-50 p-3 rounded-lg font-mono text-xs whitespace-pre-wrap text-slate-700 border border-slate-200">${rx.medicines}</div>
-
-        <div class="flex items-center justify-between gap-3 pt-1">
-          <div class="flex items-center gap-3">
-            <div id="${cardId}" class="w-16 h-16 bg-slate-100 p-1 border rounded"></div>
-            <div>
-              <p class="text-[10px] text-slate-400">Hash SHA-256 de Autenticidade:</p>
-              <code class="text-[10px] font-mono text-emerald-700 font-bold block">${rx.hash}</code>
-              <p class="text-[10px] text-slate-400 mt-0.5">Emitido em: ${rx.issuedAt}</p>
-            </div>
-          </div>
-          <button onclick="downloadPrescriptionPDF('${rx.hash}')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5">
-            <i class="fa-solid fa-file-pdf"></i> Baixar PDF
-          </button>
-        </div>
-      `;
-
-      container.appendChild(rxCard);
-
-      // Generate QRCode
-      setTimeout(() => {
-        new QRCode(document.getElementById(cardId), {
-          text: `https://validar.iti.gov.br?hash=${rx.hash}`,
-          width: 56,
-          height: 56
-        });
-      }, 100);
-
-      auditLog(`<strong>Receita Recebida:</strong> Receita médica com QR-Code e ICP-Brasil recebida do médico.`);
-    }
-
-    function downloadPrescriptionPDF(hash) {
-      alert(`Simulação de Download PDF da Receita Assinada.\nHash de Verificação: ${hash}`);
-    }
-
-
-    // =========================================================================
-    // UI CONTROLS & UTILITIES
-    // =========================================================================
-    function toggleCamera() {
-      if (!localStream) return;
-      const videoTrack = localStream.getVideoTracks()[0];
-      if (videoTrack) {
-        isCamOn = !isCamOn;
-        videoTrack.enabled = isCamOn;
-        document.getElementById('icon-cam').className = isCamOn ? "fa-solid fa-video" : "fa-solid fa-video-slash text-red-400";
-        auditLog(`Câmera local ${isCamOn ? 'ativada' : 'desativada'}.`);
-      }
-    }
-
-    function toggleMic() {
-      if (!localStream) return;
-      const audioTrack = localStream.getAudioTracks()[0];
-      if (audioTrack) {
-        isMicOn = !isMicOn;
-        audioTrack.enabled = isMicOn;
-        document.getElementById('icon-mic').className = isMicOn ? "fa-solid fa-microphone" : "fa-solid fa-microphone-slash text-red-400";
-        auditLog(`Microfone local ${isMicOn ? 'ativado' : 'mudo'}.`);
-      }
-    }
-
-    async function toggleScreenShare() {
-      try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const screenTrack = screenStream.getVideoTracks()[0];
-
-        if (mediaCall && mediaCall.peerConnection) {
-          const sender = mediaCall.peerConnection.getSenders().find(s => s.track.kind === 'video');
-          if (sender) sender.replaceTrack(screenTrack);
-        }
-
-        document.getElementById('local-video').srcObject = screenStream;
-
-        screenTrack.onended = () => {
-          if (localStream) {
-            const videoTrack = localStream.getVideoTracks()[0];
-            const sender = mediaCall.peerConnection.getSenders().find(s => s.track.kind === 'video');
-            if (sender) sender.replaceTrack(videoTrack);
-            document.getElementById('local-video').srcObject = localStream;
-          }
-        };
-
-        auditLog("<strong>Compartilhamento de Tela:</strong> Transmissão de tela iniciada.");
-      } catch (err) {
-        console.log('Screen share cancelled', err);
-      }
-    }
-
-    // Demo Canvas fallback video generator
-    function simulateDemoMedia() {
-      const canvas = document.createElement('canvas');
-      canvas.width = 640;
-      canvas.height = 360;
-      const ctx = canvas.getContext('2d');
-
-      let hue = 0;
-      setInterval(() => {
-        hue = (hue + 1) % 360;
-        ctx.fillStyle = `hsl(${hue}, 60%, 20%)`;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "24px Inter, sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(`Vídeo de Teste Síncrono - ${userRole}`, canvas.width / 2, canvas.height / 2 - 10);
-        ctx.font = "16px Inter, sans-serif";
-        ctx.fillText(new Date().toLocaleTimeString('pt-BR'), canvas.width / 2, canvas.height / 2 + 20);
-      }, 50);
-
-      const demoStream = canvas.captureStream(30);
-      document.getElementById('local-video').srcObject = demoStream;
-      document.getElementById('local-video').classList.remove('hidden');
-      document.getElementById('local-fallback').classList.add('hidden');
-
-      if (peer && mediaCall) {
-        const call = peer.call(mediaCall.peer, demoStream);
-        call.on('stream', attachRemoteStream);
-      }
-      auditLog("<strong>Demo Stream:</strong> Sinal de vídeo sintético transmitido.");
-    }
-
-    function switchPepTab(tab) {
-      ['anamnesis', 'rx', 'files'].forEach(t => {
-        document.getElementById(`pep-tab-${t}`).classList.add('hidden');
-        document.getElementById(`tab-btn-${t}`).className = "flex-1 py-3 px-4 text-slate-600 hover:text-sky-600 transition flex items-center justify-center gap-1.5";
-      });
-
-      document.getElementById(`pep-tab-${tab}`).classList.remove('hidden');
-      document.getElementById(`tab-btn-${tab}`).className = "flex-1 py-3 px-4 text-sky-700 border-b-2 border-sky-600 bg-white transition flex items-center justify-center gap-1.5 font-bold";
-    }
-
-    function copyRoomLink() {
-      const url = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
-      navigator.clipboard.writeText(url);
-      alert(`Link de acesso direto copiado para a área de transferência:\n${url}\n\nAbra este link no Computador B para conectar!`);
-    }
-
-    function toggleAuditModal() {
-      const modal = document.getElementById('audit-modal');
-      modal.classList.toggle('hidden');
-    }
-
-    function resetSession() {
-      if (confirm('Deseja realmente encerrar a sala e desconectar?')) {
-        if (peer) peer.destroy();
-        window.location.reload();
-      }
-    }
-
-    // Auto-fill room code from URL params if present
-    window.onload = function() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const roomParam = urlParams.get('room');
-      if (roomParam) {
-        document.getElementById('room-code-input').value = roomParam.toUpperCase();
-      }
-      auditLog("Plataforma de Telemedicina Síncrona inicializada. Aguardando seleção de perfil.");
-    };
   </script>
-
 </body>
 </html>
